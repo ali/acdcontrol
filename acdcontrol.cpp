@@ -489,7 +489,7 @@ int main (int argc, char **argv) {
       if ( mode == SETREL ) {
         brightness = usage_ref.value + amount;
         brightness = max( 0, brightness);
-        brightness = min( 750, brightness);
+        brightness = min( 1000, brightness);
         usage_ref.value = brightness;
         
         /* set calculated brightness */
