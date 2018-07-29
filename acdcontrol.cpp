@@ -186,6 +186,7 @@ void dump_usage ( hiddev_usage_ref& usage_ref ) {
   printf ("  field_index   =%d\n", usage_ref.field_index );
   printf ("  usage_index   =%d\n", usage_ref.usage_index );
   printf ("  usage_code    =%d\n", usage_ref.usage_code );
+  printf ("  value         =%d\n\n", usage_ref.value );
 }
 
 /** Prints help for the program.
@@ -281,6 +282,46 @@ void about() {
           " Please, visit http://acdcontrol.sf.net for updates\n"
           "NOTE: You can suppress a startup message with --silent (-s) option\n"
           );
+}
+
+int dump_info(int fd) {
+  int i = 0;
+  int j = 0;
+  int ret = 0;
+  struct hiddev_report_info rinfo;
+  struct hiddev_field_info finfo;
+  struct hiddev_usage_ref uref;
+
+  rinfo.report_type = HID_REPORT_TYPE_FEATURE;
+  rinfo.report_id = HID_REPORT_ID_FIRST;
+  ret = ioctl(fd, HIDIOCGREPORTINFO, &rinfo);
+
+  while (ret >= 0) {
+    for (i = 0; i < rinfo.num_fields; i++) {
+      finfo.report_type = rinfo.report_type;
+      finfo.report_id = rinfo.report_id;
+      finfo.field_index = i;
+      ioctl(fd, HIDIOCGFIELDINFO, &finfo);
+      for (j = 0; j < finfo.maxusage; j++) {
+        uref.report_type = rinfo.report_type;
+        uref.report_id = rinfo.report_id;
+        uref.field_index = i;
+        uref.usage_index = j;
+        ioctl(fd, HIDIOCGUCODE, &uref);
+        ioctl(fd, HIDIOCGUSAGE, &uref);
+
+        if (uref.usage_code == USAGE_CODE) {
+          printf("Wow this looks like the usage code we want.\n\n");
+        }
+
+        dump_usage(uref);
+      }
+    }
+    rinfo.report_id |= HID_REPORT_ID_NEXT;
+    ret = ioctl(fd, HIDIOCGREPORTINFO, &rinfo);
+  }
+
+  return ret;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -462,7 +503,8 @@ int main (int argc, char **argv) {
     usage_ref.usage_index = 0;
     usage_ref.usage_code = USAGE_CODE;
     usage_ref.value = brightness;
-    //  dump_usage ( usage_ref );
+    // dump_usage ( usage_ref );
+    // dump_info(fd);
     
     rep_info.report_type = HID_REPORT_TYPE_FEATURE;
     rep_info.report_id = BRIGHTNESS_CONTROL;
