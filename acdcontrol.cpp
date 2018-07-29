@@ -47,9 +47,12 @@ const int SETREL = 3;
 // Supported vendors
 const int APPLE                           = 0x05ac;
 const int SAMSUNG                         = 0x0419;
+const int LG                              = 0x43e;
 
-const int BRIGHTNESS_CONTROL              = 16;
 const int USAGE_CODE                      = 0x820010;
+
+const int APPLE_BRIGHTNESS_CONTROL_REPORT_ID = 16; // magic #?
+const int LG_BRIGHTNESS_CONTROL_REPORT_ID = HID_REPORT_ID_FIRST;
 
 const int STUDIO_DISPLAY_15               = 0x9215;
 const int STUDIO_DISPLAY_17               = 0x9217;
@@ -64,6 +67,8 @@ const int CINEMA_DISPLAY_30               = 0x9232;
 const int LED_CINEMA_DISPLAY_24           = 0x9236;
 
 const int S1                              = 0x8002;
+
+const int ULTRAFINE_5K_27                 = 0x9a40;
 
 // Forward Declarations
 void init_device_database();
@@ -176,6 +181,15 @@ void format_device( ostream& o, const hiddev_devinfo& device_info ) {
   o << endl;
 }
 
+int get_device_max_brightness (const hiddev_devinfo& device_info) {
+  Product product = device_info.product & 0xFFFF;
+  Vendor vendor = device_info.vendor & 0xFFFF;
+
+  if (vendor == LG && product == ULTRAFINE_5K_27) {
+    return 54000; // TODO: find real max value
+  }
+  return 1000;
+}
 
 /** Debug routine for dumping device usage 
  * @param usage_ref usage description 
@@ -455,9 +469,14 @@ int main (int argc, char **argv) {
            << endl;
       exit(1);
     }
-    
+
+    int brightness_control_report_id =
+      device_info.vendor == LG
+        ? LG_BRIGHTNESS_CONTROL_REPORT_ID
+        : APPLE_BRIGHTNESS_CONTROL_REPORT_ID;
+
     usage_ref.report_type = HID_REPORT_TYPE_FEATURE;
-    usage_ref.report_id = BRIGHTNESS_CONTROL;
+    usage_ref.report_id = brightness_control_report_id;
     usage_ref.field_index = 0;
     usage_ref.usage_index = 0;
     usage_ref.usage_code = USAGE_CODE;
@@ -465,7 +484,7 @@ int main (int argc, char **argv) {
     //  dump_usage ( usage_ref );
     
     rep_info.report_type = HID_REPORT_TYPE_FEATURE;
-    rep_info.report_id = BRIGHTNESS_CONTROL;
+    rep_info.report_id = brightness_control_report_id;
     rep_info.num_fields = 1;
     
     if ( mode == SET ) {
@@ -487,9 +506,10 @@ int main (int argc, char **argv) {
         exit ( 3 );
       }
       if ( mode == SETREL ) {
+        int device_max_brightness = get_device_max_brightness(device_info);
         brightness = usage_ref.value + amount;
         brightness = max( 0, brightness);
-        brightness = min( 1000, brightness);
+        brightness = min( device_max_brightness, brightness);
         usage_ref.value = brightness;
         
         /* set calculated brightness */
@@ -526,6 +546,7 @@ int main (int argc, char **argv) {
 void init_device_database() {
   supportedVendors.insert( VendorDesc( SAMSUNG, "Samsung Electronics" ) );
   supportedVendors.insert( VendorDesc( APPLE, "Apple" ) );
+  supportedVendors.insert( VendorDesc( LG, "LG Electronics" ) );
 
   supportedDevices.insert( DeviceId( APPLE, STUDIO_DISPLAY_15,
                                      "Apple Studio Display 15\"" ));
@@ -554,6 +575,9 @@ void init_device_database() {
 
   supportedDevices.insert( DeviceId( SAMSUNG, S1,
                                      "Samsung SyncMaster 757NF" ));
+
+  supportedDevices.insert( DeviceId( LG, ULTRAFINE_5K_27,
+                                     "LG UltraFine 5K 27\"" ));
 
 }
 
